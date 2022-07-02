@@ -20,12 +20,17 @@ import "go.opentelemetry.io/collector/config"
 type Config struct {
 	config.ExtensionSettings `mapstructure:",squash"` // squash ensures fields are correctly decoded in embedded struct
 
-	// The attribute (header name) to look for auth data. Optional, default value: "authorization".
+	// The attribute (header name) to look for auth data.
+	// Optional, default value: "authorization".
 	Attribute string `mapstructure:"attribute"`
 
 	// IssuerURL is the base URL for the OIDC provider.
 	// Required.
 	IssuerURL string `mapstructure:"issuer_url"`
+
+	// JWKSURL is the URL of the JWKS. Will disable auto-discovery from the Issuer URL.
+	// Optional.
+	JWKSURL string `mapstructure:"jwks_url"`
 
 	// Audience of the token, used during the verification.
 	// For example: "https://accounts.google.com" or "https://login.salesforce.com".

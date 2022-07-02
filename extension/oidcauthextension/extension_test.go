@@ -118,11 +118,11 @@ func TestOIDCProviderForConfigWithTLS(t *testing.T) {
 	}
 
 	// test
-	provider, err := getProviderForConfig(config)
+	verifier, err := getVerifierForConfig(config)
 
 	// verify
 	assert.NoError(t, err)
-	assert.NotNil(t, provider)
+	assert.NotNil(t, verifier)
 }
 
 func TestOIDCLoadIssuerCAFromPath(t *testing.T) {
@@ -191,11 +191,11 @@ func TestOIDCFailedToLoadIssuerCAFromPathInvalidContent(t *testing.T) {
 	}
 
 	// test
-	provider, err := getProviderForConfig(config) // cross test with getIssuerCACertFromPath
+	verifier, err := getVerifierForConfig(config) // cross test with getIssuerCACertFromPath
 
 	// verify
 	assert.Error(t, err)
-	assert.Nil(t, provider)
+	assert.Nil(t, verifier)
 }
 
 func TestOIDCInvalidAuthHeader(t *testing.T) {

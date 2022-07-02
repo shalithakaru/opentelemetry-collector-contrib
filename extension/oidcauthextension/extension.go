@@ -38,7 +38,6 @@ import (
 type oidcExtension struct {
 	cfg *Config
 
-	provider *oidc.Provider
 	verifier *oidc.IDTokenVerifier
 
 	logger *zap.Logger
@@ -75,15 +74,11 @@ func newExtension(cfg *Config, logger *zap.Logger) (configauth.ServerAuthenticat
 }
 
 func (e *oidcExtension) start(context.Context, component.Host) error {
-	provider, err := getProviderForConfig(e.cfg)
+	verifier, err := getVerifierForConfig(e.cfg)
 	if err != nil {
 		return fmt.Errorf("failed to get configuration from the auth server: %w", err)
 	}
-	e.provider = provider
-
-	e.verifier = e.provider.Verifier(&oidc.Config{
-		ClientID: e.cfg.Audience,
-	})
+	e.verifier = verifier
 
 	return nil
 }
@@ -179,7 +174,7 @@ func getGroupsFromClaims(claims map[string]interface{}, groupsClaim string) ([]s
 	return []string{}, nil
 }
 
-func getProviderForConfig(config *Config) (*oidc.Provider, error) {
+func getVerifierForConfig(config *Config) (*oidc.IDTokenVerifier, error) {
 	t := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -211,7 +206,23 @@ func getProviderForConfig(config *Config) (*oidc.Provider, error) {
 		Transport: t,
 	}
 	oidcContext := oidc.ClientContext(context.Background(), client)
-	return oidc.NewProvider(oidcContext, config.IssuerURL)
+
+	oidcConfig := oidc.Config{
+		ClientID: config.Audience,
+	}
+
+	// Use auto discovery if JWKS URL not set
+	if config.JWKSURL == "" {
+		provider, err := oidc.NewProvider(oidcContext, config.IssuerURL)
+		if err != nil {
+			return nil, err
+		}
+
+		return provider.Verifier(&oidcConfig), nil
+	}
+
+	keySet := oidc.NewRemoteKeySet(oidcContext, config.JWKSURL)
+	return oidc.NewVerifier(config.IssuerURL, keySet, &oidcConfig), nil
 }
 
 func getIssuerCACertFromPath(path string) (*x509.Certificate, error) {

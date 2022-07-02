@@ -33,3 +33,15 @@ service:
       processors: []
       exporters: [logging]
 ```
+
+Firebase AppCheck is an example service that both uses custom headers and doesn't provide an auto-discovery mechanism:
+
+```yaml
+extensions:
+  oidc:
+    issuer_url: https://firebaseappcheck.googleapis.com/<PROJECT_NUMBER>
+    jwks_url: https://firebaseappcheck.googleapis.com/v1/jwks
+    attribute: X-Firebase-AppCheck
+    audience: projects/<PROJECT_NUMBER>
+...
+```

@@ -39,26 +39,32 @@ type oidcServer struct {
 	*httptest.Server
 	x509Cert   []byte
 	privateKey *rsa.PrivateKey
+
+	JWKSPath string
 }
 
-func newOIDCServer() (*oidcServer, error) {
+func newOIDCServer(autoDiscovery bool) (*oidcServer, error) {
 	jwks := map[string]interface{}{}
 
 	mux := http.NewServeMux()
 	server := httptest.NewUnstartedServer(mux)
 
-	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		err := json.NewEncoder(w).Encode(map[string]interface{}{
-			"issuer":   server.URL,
-			"jwks_uri": fmt.Sprintf("%s/.well-known/jwks.json", server.URL),
+	jwksPath := "some-path/jwks.json"
+
+	if autoDiscovery {
+		mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			err := json.NewEncoder(w).Encode(map[string]interface{}{
+				"issuer":   server.URL,
+				"jwks_uri": fmt.Sprintf("%s/%s", server.URL, jwksPath),
+			})
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 		})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-	})
-	mux.HandleFunc("/.well-known/jwks.json", func(w http.ResponseWriter, req *http.Request) {
+	}
+	mux.HandleFunc(fmt.Sprintf("/%s", jwksPath), func(w http.ResponseWriter, req *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		if err := json.NewEncoder(w).Encode(jwks); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -93,7 +99,7 @@ func newOIDCServer() (*oidcServer, error) {
 		"x5t": base64.RawURLEncoding.EncodeToString(sum[:]),
 	}}
 
-	return &oidcServer{server, x509Cert, privateKey}, nil
+	return &oidcServer{server, x509Cert, privateKey, jwksPath}, nil
 }
 
 func (s *oidcServer) token(jsonPayload []byte) (string, error) {

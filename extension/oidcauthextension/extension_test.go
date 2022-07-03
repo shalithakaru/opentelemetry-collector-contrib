@@ -38,7 +38,7 @@ import (
 
 func TestOIDCAuthenticationSucceeded(t *testing.T) {
 	// prepare
-	oidcServer, err := newOIDCServer()
+	oidcServer, err := newOIDCServer(true)
 	require.NoError(t, err)
 	oidcServer.Start()
 	defer oidcServer.Close()
@@ -58,6 +58,48 @@ func TestOIDCAuthenticationSucceeded(t *testing.T) {
 		"sub":         "jdoe@example.com",
 		"name":        "jdoe",
 		"iss":         oidcServer.URL,
+		"aud":         "unit-test",
+		"exp":         time.Now().Add(time.Minute).Unix(),
+		"memberships": []string{"department-1", "department-2"},
+	})
+	token, err := oidcServer.token(payload)
+	require.NoError(t, err)
+
+	// test
+	ctx, err := p.Authenticate(context.Background(), map[string][]string{"authorization": {fmt.Sprintf("Bearer %s", token)}})
+
+	// verify
+	assert.NoError(t, err)
+	assert.NotNil(t, ctx)
+
+	// TODO(jpkroehling): assert that the authentication routine set the subject/membership to the resource
+}
+
+func TestJWKSAuthenticationSucceeded(t *testing.T) {
+	// prepare
+	oidcServer, err := newOIDCServer(false)
+	require.NoError(t, err)
+	oidcServer.Start()
+	defer oidcServer.Close()
+
+	customIssuer := "http://some-issuer.com"
+
+	config := &Config{
+		IssuerURL:   customIssuer,
+		JWKSURL:     fmt.Sprintf("%s/%s", oidcServer.URL, oidcServer.JWKSPath),
+		Audience:    "unit-test",
+		GroupsClaim: "memberships",
+	}
+	p, err := newExtension(config, zap.NewNop())
+	require.NoError(t, err)
+
+	err = p.Start(context.Background(), componenttest.NewNopHost())
+	require.NoError(t, err)
+
+	payload, _ := json.Marshal(map[string]interface{}{
+		"sub":         "jdoe@example.com",
+		"name":        "jdoe",
+		"iss":         customIssuer,
 		"aud":         "unit-test",
 		"exp":         time.Now().Add(time.Minute).Unix(),
 		"memberships": []string{"department-1", "department-2"},
@@ -99,7 +141,7 @@ func TestOIDCProviderForConfigWithTLS(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	oidcServer, err := newOIDCServer()
+	oidcServer, err := newOIDCServer(true)
 	require.NoError(t, err)
 	defer oidcServer.Close()
 
@@ -247,7 +289,7 @@ func TestProviderNotReacheable(t *testing.T) {
 
 func TestFailedToVerifyToken(t *testing.T) {
 	// prepare
-	oidcServer, err := newOIDCServer()
+	oidcServer, err := newOIDCServer(true)
 	require.NoError(t, err)
 	oidcServer.Start()
 	defer oidcServer.Close()
@@ -271,7 +313,7 @@ func TestFailedToVerifyToken(t *testing.T) {
 
 func TestFailedToGetGroupsClaimFromToken(t *testing.T) {
 	// prepare
-	oidcServer, err := newOIDCServer()
+	oidcServer, err := newOIDCServer(true)
 	require.NoError(t, err)
 	oidcServer.Start()
 	defer oidcServer.Close()

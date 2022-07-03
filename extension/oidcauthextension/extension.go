@@ -15,6 +15,7 @@
 package oidcauthextension // import "github.com/open-telemetry/opentelemetry-collector-contrib/extension/oidcauthextension"
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
@@ -33,12 +34,17 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configauth"
 	"go.uber.org/zap"
+
+	"github.com/google/cel-go/cel"
+	"github.com/google/cel-go/checker/decls"
 )
 
 type oidcExtension struct {
 	cfg *Config
 
 	verifier *oidc.IDTokenVerifier
+
+	conditionProgram cel.Program
 
 	logger *zap.Logger
 }
@@ -52,6 +58,8 @@ var (
 	errUsernameNotString                 = errors.New("the username returned by the OIDC provider isn't a regular string")
 	errGroupsClaimNotFound               = errors.New("groups claim from the OIDC configuration not found on the token returned by the OIDC provider")
 	errNotAuthenticated                  = errors.New("authentication didn't succeed")
+	errClaimConditionsResultNotBool      = errors.New("claim conditions do not result in a boolean expression")
+	errClaimConditionsViolated           = errors.New("claims not authorized")
 )
 
 func newExtension(cfg *Config, logger *zap.Logger) (configauth.ServerAuthenticator, error) {
@@ -80,7 +88,50 @@ func (e *oidcExtension) start(context.Context, component.Host) error {
 	}
 	e.verifier = verifier
 
+	if len(e.cfg.Conditions) > 0 {
+		e.conditionProgram, err = compileCEL(e.cfg.Conditions)
+		if err != nil {
+			return fmt.Errorf("failed to compile claim conditions: %w", err)
+		}
+	}
+
 	return nil
+}
+
+func buildQuery(conditions []string) string {
+	buf := &bytes.Buffer{}
+	for i, v := range conditions {
+		if i > 0 {
+			buf.WriteString(" && ")
+		}
+		buf.WriteByte('(')
+		buf.WriteString(v)
+		buf.WriteByte(')')
+	}
+	return buf.String()
+}
+
+func compileCEL(conditions []string) (cel.Program, error) {
+	env, _ := cel.NewEnv(
+		cel.ClearMacros(),
+		cel.Declarations(
+			decls.NewVar("jwt", decls.NewMapType(decls.String, decls.Dyn)),
+		),
+	)
+
+	ast, iss := env.Compile(buildQuery(conditions))
+	if iss.Err() != nil {
+		return nil, iss.Err()
+	}
+	if ast.ResultType() != decls.Bool {
+		return nil, errClaimConditionsResultNotBool
+	}
+
+	program, err := env.Program(ast)
+	if err != nil {
+		return nil, err
+	}
+	return program, nil
 }
 
 // authenticate checks whether the given context contains valid auth data. Successfully authenticated calls will always return a nil error and a context with the auth data.
@@ -122,12 +173,31 @@ func (e *oidcExtension) authenticate(ctx context.Context, headers map[string][]s
 		return ctx, fmt.Errorf("failed to get groups from claims in the token: %w", err)
 	}
 
+	if e.conditionProgram != nil {
+		result, _, err := e.conditionProgram.ContextEval(ctx, map[string]interface{}{"jwt": claims})
+		if err != nil {
+			return ctx, fmt.Errorf("failed to evaluate claims against conditions: %w", err)
+		}
+
+		bVal, ok := result.Value().(bool) // given that your expression returns a boolean value
+		if !ok {
+			return ctx, errClaimConditionsResultNotBool
+		}
+
+		if !bVal {
+			return ctx, errClaimConditionsViolated
+		}
+	}
+
+	// Successfully authenticated
+
 	cl := client.FromContext(ctx)
 	cl.Auth = &authData{
 		raw:        raw,
 		subject:    subject,
 		membership: membership,
 	}
+
 	return client.NewContext(ctx, cl), nil
 }
 

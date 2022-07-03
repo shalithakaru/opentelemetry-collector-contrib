@@ -89,6 +89,7 @@ func TestJWKSAuthenticationSucceeded(t *testing.T) {
 		JWKSURL:     fmt.Sprintf("%s/%s", oidcServer.URL, oidcServer.JWKSPath),
 		Audience:    "unit-test",
 		GroupsClaim: "memberships",
+		Conditions:  []string{`jwt.aud == "unit-test"`, `jwt.iss.contains("some-iss")`},
 	}
 	p, err := newExtension(config, zap.NewNop())
 	require.NoError(t, err)

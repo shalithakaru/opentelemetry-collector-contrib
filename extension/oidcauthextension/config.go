@@ -48,4 +48,9 @@ type Config struct {
 	// The claim that holds the subject's group membership information.
 	// Optional.
 	GroupsClaim string `mapstructure:"groups_claim"`
+
+	// Conditions that the claims must pass to be valid in Google's CEL format.
+	// Useful for some clients like Github where you may want to check a branch.
+	// For example: `claims.ref == "refs/heads/main"`
+	Conditions []string `mapstructure:"conditions"`
 }

@@ -9,11 +9,12 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/extension"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/bearertokenauthextension/internal/metadata"
+	"github.com/shalithakaru/opentelemetry-collector-contrib/extension/bearertokenauthextension/internal/metadata"
 )
 
 const (
 	defaultScheme = "Bearer"
+	defaultHeader = "authorization"
 )
 
 // NewFactory creates a factory for the static bearer token Authenticator extension.
@@ -29,6 +30,7 @@ func NewFactory() extension.Factory {
 func createDefaultConfig() component.Config {
 	return &Config{
 		Scheme: defaultScheme,
+		Header: defaultHeader,
 	}
 }
 

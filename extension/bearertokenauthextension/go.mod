@@ -53,6 +53,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
+replace github.com/open-telemetry/opentelemetry-collector-contrib/extension/bearertokenauthextension/internal/metadata => ./extension/bearertokenauthextension/internal/metadata
+
 retract (
 	v0.76.2
 	v0.76.1

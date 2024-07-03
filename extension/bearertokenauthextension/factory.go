@@ -9,7 +9,7 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/extension"
 
-	"github.com/shalithakaru/opentelemetry-collector-contrib/extension/bearertokenauthextension/internal/metadata"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/bearertokenauthextension/internal/metadata"
 )
 
 const (

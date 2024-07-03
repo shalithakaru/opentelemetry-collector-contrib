@@ -160,7 +160,7 @@ func (b *BearerTokenAuth) Shutdown(_ context.Context) error {
 // PerRPCCredentials returns PerRPCAuth an implementation of credentials.PerRPCCredentials that
 func (b *BearerTokenAuth) PerRPCCredentials() (credentials.PerRPCCredentials, error) {
 	return &PerRPCAuth{
-		metadata: map[string]string{b.header: b.bearerToken()}, // Use header instead of hardcoded "authorization"
+		metadata: map[string]string{b.header: b.bearerToken()},
 	}, nil
 }
 
@@ -210,6 +210,6 @@ func (interceptor *BearerAuthRoundTripper) RoundTrip(req *http.Request) (*http.R
 	if req2.Header == nil {
 		req2.Header = make(http.Header)
 	}
-	req2.Header.Set(interceptor.header, interceptor.bearerTokenFunc()) // Use header instead of hardcoded "Authorization"
+	req2.Header.Set(interceptor.header, interceptor.bearerTokenFunc())
 	return interceptor.baseTransport.RoundTrip(req2)
 }

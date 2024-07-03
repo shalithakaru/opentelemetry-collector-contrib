@@ -45,6 +45,7 @@ type BearerTokenAuth struct {
 	muTokenString sync.RWMutex
 	scheme        string
 	tokenString   string
+	header        string
 
 	shutdownCH chan struct{}
 
@@ -62,6 +63,7 @@ func newBearerTokenAuth(cfg *Config, logger *zap.Logger) *BearerTokenAuth {
 		scheme:      cfg.Scheme,
 		tokenString: string(cfg.BearerToken),
 		filename:    cfg.Filename,
+		header:      cfg.Header,
 		logger:      logger,
 	}
 }
@@ -158,7 +160,7 @@ func (b *BearerTokenAuth) Shutdown(_ context.Context) error {
 // PerRPCCredentials returns PerRPCAuth an implementation of credentials.PerRPCCredentials that
 func (b *BearerTokenAuth) PerRPCCredentials() (credentials.PerRPCCredentials, error) {
 	return &PerRPCAuth{
-		metadata: map[string]string{"authorization": b.bearerToken()},
+		metadata: map[string]string{b.header: b.bearerToken()}, // Use header instead of hardcoded "authorization"
 	}, nil
 }
 
@@ -174,15 +176,13 @@ func (b *BearerTokenAuth) RoundTripper(base http.RoundTripper) (http.RoundTrippe
 	return &BearerAuthRoundTripper{
 		baseTransport:   base,
 		bearerTokenFunc: b.bearerToken,
+		header:          b.header,
 	}, nil
 }
 
 // Authenticate checks whether the given context contains valid auth data.
 func (b *BearerTokenAuth) Authenticate(ctx context.Context, headers map[string][]string) (context.Context, error) {
-	auth, ok := headers["authorization"]
-	if !ok {
-		auth, ok = headers["Authorization"]
-	}
+	auth, ok := headers[b.header]
 	if !ok || len(auth) == 0 {
 		return ctx, errors.New("authentication didn't succeed")
 	}
@@ -201,6 +201,7 @@ func (b *BearerTokenAuth) Authenticate(ctx context.Context, headers map[string][
 type BearerAuthRoundTripper struct {
 	baseTransport   http.RoundTripper
 	bearerTokenFunc func() string
+	header          string
 }
 
 // RoundTrip modifies the original request and adds Bearer token Authorization headers.
@@ -209,6 +210,6 @@ func (interceptor *BearerAuthRoundTripper) RoundTrip(req *http.Request) (*http.R
 	if req2.Header == nil {
 		req2.Header = make(http.Header)
 	}
-	req2.Header.Set("Authorization", interceptor.bearerTokenFunc())
+	req2.Header.Set(interceptor.header, interceptor.bearerTokenFunc()) // Use header instead of hardcoded "Authorization"
 	return interceptor.baseTransport.RoundTrip(req2)
 }

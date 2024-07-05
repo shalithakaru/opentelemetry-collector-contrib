@@ -12,6 +12,7 @@ import (
 
 // Config specifies how the Per-RPC bearer token based authentication data should be obtained.
 type Config struct {
+	Header string `mapstructure:"header,omitempty"`
 
 	// Scheme specifies the auth-scheme for the token. Defaults to "Bearer"
 	Scheme string `mapstructure:"scheme,omitempty"`
@@ -21,9 +22,6 @@ type Config struct {
 
 	// Filename points to a file that contains the bearer token to use for every RPC.
 	Filename string `mapstructure:"filename,omitempty"`
-
-	// Key name of the header.
-	Header string `mapstructure:"header,omitempty"`
 }
 
 var _ component.Config = (*Config)(nil)

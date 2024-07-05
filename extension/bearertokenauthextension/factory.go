@@ -14,7 +14,7 @@ import (
 
 const (
 	defaultScheme = "Bearer"
-	defaultHeader = "authorization"
+	// defaultHeader = "Authorization"
 )
 
 // NewFactory creates a factory for the static bearer token Authenticator extension.
@@ -30,7 +30,7 @@ func NewFactory() extension.Factory {
 func createDefaultConfig() component.Config {
 	return &Config{
 		Scheme: defaultScheme,
-		Header: defaultHeader,
+		// Header: defaultHeader,
 	}
 }
 
